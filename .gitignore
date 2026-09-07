@@ -17,5 +17,6 @@ facts.db-journal
 uploads/
 *.log
 
-# Large dataset archives (extracted directory starter-datasets/ is kept)
+# Large dataset archives & PDF documents (kept locally, excluded from git)
 starter-datasets.zip
+*.pdf

@@ -578,8 +578,8 @@
           <div style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.25rem;">Extracts numerical & semantic facts grounded by page & verbatim quote</div>
         </div>
         <div class="upload-controls">
-          <input type="number" id="max-pages-input" class="input-field" placeholder="Max pages (e.g. 5)" min="1" />
-          <input type="text" id="pages-list-input" class="input-field" placeholder="Specific pages (e.g. 1,4,26)" />
+          <input type="number" id="max-pages-input" class="input-field" placeholder="Max pages (default 3)" value="3" min="1" max="20" />
+          <input type="text" id="pages-list-input" class="input-field" placeholder="Specific pages (e.g. 7,9)" />
           <button class="btn btn-primary" id="btn-upload" onclick="uploadPDF()">
             <span>Ingest PDF</span>
           </button>
@@ -812,7 +812,7 @@
       if (pages) formData.append('pages', pages);
 
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Ingesting...';
+      btn.innerHTML = '<span class="spinner"></span> Extracting (~5-8s)...';
 
       try {
         const res = await fetch('/upload', { method: 'POST', body: formData });
@@ -832,12 +832,12 @@
     async function runComparisons() {
       const btn = document.getElementById('btn-run-comparisons');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Reasoning across documents...';
+      btn.innerHTML = '<span class="spinner"></span> Reasoning (~4-8s)...';
 
       try {
-        const res = await fetch('/run-comparisons?max_candidates=35', { method: 'POST' });
+        const res = await fetch('/run-comparisons?max_candidates=5', { method: 'POST' });
         const data = await res.json();
-        alert(`Reasoning complete!\nEvaluated pairs: ${data.candidate_pairs_evaluated}\nNew relationships recorded: ${data.new_comparisons_stored}`);
+        alert(`Reasoning complete!\nEvaluated top pairs: ${data.candidate_pairs_evaluated}\nNew relationships recorded: ${data.new_comparisons_stored}`);
         await refreshAll();
       } catch (err) {
         alert("Reasoning error: " + err);

@@ -62,13 +62,16 @@ async def upload_pdf(
         shutil.copyfileobj(file.file, f)
     
     page_numbers = None
-    if pages:
+    if pages and pages.strip():
         try:
             page_numbers = [int(p.strip()) for p in pages.split(",") if p.strip().isdigit()]
         except Exception:
             page_numbers = None
 
-    extracted_pages = extract_pages(dest_path, max_pages=max_pages, page_numbers=page_numbers)
+    # Default to 3 pages for rapid interactive responses and avoiding 100-page rate limit lockups
+    effective_max = max_pages if (max_pages is not None and max_pages > 0) else (3 if not page_numbers else None)
+
+    extracted_pages = extract_pages(dest_path, max_pages=effective_max, page_numbers=page_numbers)
     total_doc_pages = extracted_pages[0]["total_pages"] if extracted_pages else 0
     
     all_facts = []
@@ -98,27 +101,25 @@ def get_facts(
     return {"facts": fetch_all_facts(document_name=document, search=search)}
 
 @app.post("/run-comparisons")
-def run_comparisons(max_candidates: int = Query(35)):
+def run_comparisons(max_candidates: int = Query(5)):
     """
-    Discovers candidate cross-document fact pairs using attribute/metric similarity
-    and performs deep LLM reasoning to classify corroborations, contradictions,
-    and contextual reconciliations.
+    Discovers top candidate cross-document fact pairs and evaluates them using LLM reasoning.
+    Processes in batches of 5 to provide immediate 5-second interactive responses without HTTP timeouts.
     """
     raw_facts = fetch_all_facts()
     fact_objs = [(r["id"], ExtractedFact(**json.loads(r["raw_json"]))) for r in raw_facts]
     
     # 1. Candidate Linking (Attribute similarity & Domain clusters)
-    candidates = find_candidate_pairs(fact_objs, min_score=0.25, max_candidates=max_candidates)
+    # Filter candidates that haven't been evaluated yet
+    all_candidates = find_candidate_pairs(fact_objs, min_score=0.25, max_candidates=50)
+    unseen_candidates = [
+        c for c in all_candidates if not comparison_exists(c[0], c[2])
+    ][:min(max_candidates, 8)]
     
     new_comparisons = 0
     skipped_existing = 0
     
-    for id_a, fact_a, id_b, fact_b, score in candidates:
-        # Avoid redundant re-evaluation if comparison already recorded (Incremental)
-        if comparison_exists(id_a, id_b):
-            skipped_existing += 1
-            continue
-            
+    for id_a, fact_a, id_b, fact_b, score in unseen_candidates:
         result = compare_facts(fact_a, fact_b)
         if result:
             store_comparison(id_a, id_b, result)
@@ -126,9 +127,8 @@ def run_comparisons(max_candidates: int = Query(35)):
 
     return {
         "status": "complete",
-        "candidate_pairs_evaluated": len(candidates),
+        "candidate_pairs_evaluated": len(unseen_candidates),
         "new_comparisons_stored": new_comparisons,
-        "previously_cached": skipped_existing,
         "total_comparisons": len(fetch_all_comparisons())
     }
 

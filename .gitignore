@@ -1,0 +1,21 @@
+# Environment variables & secrets (CRITICAL)
+.env
+.env.*
+*.env
+
+# Python virtual environment
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Local Database & Uploads
+facts.db
+facts.db-journal
+uploads/
+*.log
+
+# Large dataset archives (extracted directory starter-datasets/ is kept)
+starter-datasets.zip
